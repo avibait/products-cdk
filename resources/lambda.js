@@ -22,7 +22,7 @@ export async function handler(event) {
     return price < 0;
   }
   const invalidTags = (tags) => {
-    return tags.includes('');
+    return tags.some((t) => t.trim().length === 0)
   }
 
   if (event.httpMethod === 'POST' && event.resource === '/products') {
@@ -62,27 +62,39 @@ export async function handler(event) {
     }
   }
 
-  //handle get product by Id
   if (event.httpMethod === 'GET' && event.resource === '/products/{productId}') {
-    const productId = event.pathParameters.productId;
+    const productId = event.pathParameters?.productId;
     if (!productId) {
-      throw 'Please specify a Product Id';
-    } else {
-      const params = {
-        Key: {
-          "id": productId
-        },
-        TableName: process.env.DYNAMO_TABLE_NAME
-      }
-      const data = await ddbDocClient.send(new dynamo.GetCommand(params));
-      return new Response(false, 200, {}, {}, JSON.stringify(data.Item));
+      return new Response(false, 400, {}, {}, 'Please specify a Product Id');
     }
+    const params = {
+      Key: {
+        "id": productId
+      },
+      TableName: process.env.DYNAMO_TABLE_NAME
+    }
+    let response;
+    let error;
+    await ddbDocClient.send(new dynamo.GetCommand(params))
+      .then((data) => {
+        response = data.Item ? data.Item : '';
+      })
+      .catch((err) => {
+        error = err;
+      });
+    if (!response) {
+      if (error) {
+        return new Response(false, 400, {}, {}, error);
+      }
+      return new Response(false, 404, {}, {}, 'No products found');
+    }
+    return new Response(false, 200, {}, {}, JSON.stringify(response));
   }
 
-  //handle search products by tags
   if (event.httpMethod === 'GET' && event.resource === '/products/search') {
     let tags = event.queryStringParameters?.tags;
     let errorMessage;
+    let response;
     if (!tags) {
       errorMessage = 'Please specify at least one tag to filter by.'
     } else {
@@ -91,7 +103,6 @@ export async function handler(event) {
       tags.forEach((t) => { valuesObject[`:${t}`] = t });
       let filter = ``;
       for (const tag in valuesObject) {
-        console.log(tag)
         if (filter) {
           filter += ` AND `;
         } filter += `contains(tags, ${tag})`
@@ -102,30 +113,21 @@ export async function handler(event) {
         ExpressionAttributeValues: valuesObject,
         TableName: process.env.DYNAMO_TABLE_NAME
       }
-
-      let response;
       await ddbDocClient.send(new dynamo.ScanCommand(params))
         .then((data) => {
           response = response = {
             _records: data.Items
           }
-          console.log(' in then block  DATA::: ' + JSON.stringify(data));
         })
         .catch((error) => {
-          console.log('in catch block ::: ' + error);
           errorMessage = error
         });
-
-      return new Response(false, 200, {}, {}, JSON.stringify(response))
-
     }
-
     if (errorMessage) {
       return new Response(false, 400, {}, {}, errorMessage);
     }
+    return new Response(false, 200, {}, {}, JSON.stringify(response))
   }
 
   return new Response(false, 400, {}, {}, 'Invalid Request. Make sure you are using the correct method and endpoint');
-
 }
-

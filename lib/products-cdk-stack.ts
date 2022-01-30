@@ -3,6 +3,8 @@ import  * as dynamodb from '@aws-cdk/aws-dynamodb';
 import * as lambda from '@aws-cdk/aws-lambda';
 import * as apigateway from '@aws-cdk/aws-apigateway'
 import * as path from 'path'
+//import  * as nodejs from '@aws-cdk/aws-lambda-nodejs';
+import {NodejsFunction} from '@aws-cdk/aws-lambda-nodejs'
 //import { aws_s3 as s3 } from 'aws-cdk-lib';
 //import * as lambdaNode from '@aws-cdk/aws-lambda-nodejs';
 
@@ -17,7 +19,7 @@ export class ProductsCdkStack extends cdk.Stack {
     }
   });
 
-  const lambdaFunction = new lambda.Function(this, 'productLambda', {
+  const lambdaFunction = new  lambda.Function(this, 'productLambda', {
     runtime: lambda.Runtime.NODEJS_14_X,
     handler: 'lambda.handler',
     code: lambda.Code.fromAsset('resources'), 
@@ -25,6 +27,18 @@ export class ProductsCdkStack extends cdk.Stack {
       DYNAMO_TABLE_NAME: table.tableName
     }
   })
+
+  //ts
+// const lambdaFunction = new NodejsFunction(this, 'productLambda', {
+//     runtime: lambda.Runtime.NODEJS_14_X,
+//     handler: 'lambda.handler',
+//     entry: path.join(__dirname,'resources'), 
+//     environment: {
+//       DYNAMO_TABLE_NAME: table.tableName
+//     }
+//   })
+
+  
 
   table.grantReadWriteData(lambdaFunction);
 
